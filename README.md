@@ -4,7 +4,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 
-A daily technical buy-signal screener for **60 large-cap stocks** — the top 10
+A daily technical buy-signal screener for **90 large-cap stocks** — the top 15
 holdings across 6 sectors. It pulls daily bars from Yahoo Finance, computes
 50-day / 200-day moving averages and 14-day RSI (Wilder), and reports only
 **new** signal transitions versus the previous run.
@@ -55,25 +55,25 @@ Two signals were **removed after backtesting**: an oversold-bounce signal
 
 | Sector | Tickers |
 |---|---|
-| Financials | BRK.B, JPM, V, MA, BAC, HSBC, MS, GS, WFC, AXP |
-| Technology | NVDA, AAPL, MSFT, TSM, AVGO, SKHY, MU, AMD, ASML, INTC |
-| Healthcare | LLY, JNJ, ABBV, MRK, UNH, NVS, AZN, TMO, AMGN, ABT |
-| Consumer Discretionary | AMZN, TSLA, HD, BABA, TM, MCD, TJX, BKNG, PDD, SBUX |
-| Industrials | CAT, GE, RTX, GEV, DE, ETN, UNP, BA, UBER, PH |
-| Utilities | NEE, SO, CEG, DUK, NGG, AEP, SRE, D, PEG, EXC |
+| Financials | BRK.B, JPM, V, MA, BAC, HSBC, MS, GS, WFC, AXP, BLK, SCHW, C, SPGI, PGR |
+| Technology | NVDA, AAPL, MSFT, TSM, AVGO, SKHY, MU, AMD, ASML, INTC, ORCL, CRM, PLTR, IBM, ACN |
+| Healthcare | LLY, JNJ, ABBV, MRK, UNH, NVS, AZN, TMO, AMGN, ABT, ISRG, PFE, DHR, GILD, BMY |
+| Consumer Discretionary | AMZN, TSLA, HD, BABA, TM, MCD, TJX, BKNG, PDD, SBUX, NKE, LOW, GM, MAR, RCL |
+| Industrials | CAT, GE, RTX, GEV, DE, ETN, UNP, BA, UBER, PH, HON, LMT, UPS, NOC, WM |
+| Utilities | NEE, SO, CEG, DUK, NGG, AEP, SRE, D, PEG, EXC, ED, XEL, ETR, WEC, ES |
 
 ## Does it work? (3-year backtest)
 
-Every signal was replayed over ~3 years of history per stock (59 stocks;
+Every signal was replayed over ~3 years of history per stock (89 stocks;
 entry at signal close, no costs). Baseline = buying on a random day.
 
 | Signal | Signals | Avg +21d | Win | Avg +63d | Win |
 |---|---|---|---|---|---|
-| **QUALITY_DIP** | 1,208 | **+4.15%** | 58% | **+15.72%** | 68% |
-| RECLAIM_200 | 1,438 | +2.34% | 58% | +7.25% | 67% |
-| AT_200_SUPPORT | 605 | +0.97% | 53% | +9.18% | 75% |
-| BREAKDOWN | 515 | +2.95% | 61% | +8.67% | 69% |
-| *random day* | *28,138* | *+2.34%* | *—* | *+6.70%* | *—* |
+| **QUALITY_DIP** | 1,688 | **+3.25%** | 57% | **+12.92%** | 67% |
+| RECLAIM_200 | 2,036 | +1.82% | 57% | +6.21% | 66% |
+| AT_200_SUPPORT | 934 | +0.78% | 53% | +7.65% | 70% |
+| BREAKDOWN | 738 | +2.34% | 60% | +7.87% | 68% |
+| *random day* | *42,508* | *+1.97%* | *—* | *+5.57%* | *—* |
 
 **Takeaway:** `QUALITY_DIP` clearly beats random entry on both horizons.
 `RECLAIM_200` is roughly market-like. Breakdowns went *up* on average —
@@ -85,12 +85,12 @@ Forward returns by holding period (QUALITY_DIP vs random entry):
 
 | Hold | QUALITY_DIP | Win | Random day |
 |---|---|---|---|
-| 5 days | +0.38% | 56% | +0.62% |
-| 21 days | +3.43% | 58% | +2.41% |
-| 42 days | +9.69% | 68% | +4.73% |
-| 63 days | +12.74% | 71% | +6.82% |
-| 126 days | +23.53% | 83% | +14.13% |
-| 252 days | +44.01% | 87% | +36.60% |
+| 5 days | +0.48% | 56% | +0.58% |
+| 21 days | +3.11% | 57% | +2.26% |
+| 42 days | +8.60% | 65% | +4.33% |
+| 63 days | +11.43% | 68% | +6.21% |
+| 126 days | +22.59% | 81% | +12.38% |
+| 252 days | +38.52% | 85% | +29.20% |
 
 **Takeaway:** no edge under ~2 weeks; the sweet spot is **2–6 months**;
 win rates keep climbing with longer holds (80%+ at 6–12 months).

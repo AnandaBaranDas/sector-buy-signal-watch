@@ -18,7 +18,7 @@ keywords:
   - moving-averages
   - RSI
   - backtest
-abstract: "Daily technical buy-signal screener for 60 large-cap stocks across
+abstract: "Daily technical buy-signal screener for 90 large-cap stocks across
   6 sectors (SMA-50/200 + RSI-14), including a confirmed 2-close 200-day
   reclaim rule, quality-dip entry criteria, and a 3-year backtest methodology.
   Pure Python, zero dependencies."

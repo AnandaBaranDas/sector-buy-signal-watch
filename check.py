@@ -15,12 +15,18 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(BASE, "state.json")
 
 SECTORS = {
-    "Financials": ["BRK.B", "JPM", "V", "MA", "BAC", "HSBC", "MS", "GS", "WFC", "AXP"],
-    "Technology": ["NVDA", "AAPL", "MSFT", "TSM", "AVGO", "SKHY", "MU", "AMD", "ASML", "INTC"],
-    "Healthcare": ["LLY", "JNJ", "ABBV", "MRK", "UNH", "NVS", "AZN", "TMO", "AMGN", "ABT"],
-    "Consumer Discretionary": ["AMZN", "TSLA", "HD", "BABA", "TM", "MCD", "TJX", "BKNG", "PDD", "SBUX"],
-    "Industrials": ["CAT", "GE", "RTX", "GEV", "DE", "ETN", "UNP", "BA", "UBER", "PH"],
-    "Utilities": ["NEE", "SO", "CEG", "DUK", "NGG", "AEP", "SRE", "D", "PEG", "EXC"],
+    "Financials": ["BRK.B", "JPM", "V", "MA", "BAC", "HSBC", "MS", "GS", "WFC", "AXP",
+                   "BLK", "SCHW", "C", "SPGI", "PGR"],
+    "Technology": ["NVDA", "AAPL", "MSFT", "TSM", "AVGO", "SKHY", "MU", "AMD", "ASML", "INTC",
+                   "ORCL", "CRM", "PLTR", "IBM", "ACN"],
+    "Healthcare": ["LLY", "JNJ", "ABBV", "MRK", "UNH", "NVS", "AZN", "TMO", "AMGN", "ABT",
+                   "ISRG", "PFE", "DHR", "GILD", "BMY"],
+    "Consumer Discretionary": ["AMZN", "TSLA", "HD", "BABA", "TM", "MCD", "TJX", "BKNG", "PDD", "SBUX",
+                               "NKE", "LOW", "GM", "MAR", "RCL"],
+    "Industrials": ["CAT", "GE", "RTX", "GEV", "DE", "ETN", "UNP", "BA", "UBER", "PH",
+                    "HON", "LMT", "UPS", "NOC", "WM"],
+    "Utilities": ["NEE", "SO", "CEG", "DUK", "NGG", "AEP", "SRE", "D", "PEG", "EXC",
+                  "ED", "XEL", "ETR", "WEC", "ES"],
 }
 
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
