@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 """
-Daily sector watch: top-10 stocks x 6 sectors.
+Daily sector watch: top-15 stocks x 6 sectors (90 tickers).
 Pulls daily bars from Yahoo Finance, computes SMA50 / SMA200 / RSI14 (Wilder),
 and emits BUY-signal / breakdown transitions vs yesterday's state.
+Also tracks your open positions and fires exit alerts:
+  - SELL when a holding freshly breaks below its 200-day (trend thesis broken)
+  - REVIEW after 63 trading sessions (~3 months, the backtest sweet spot)
 
 Usage:
-  python3 check.py            # run daily check, print new signals (JSON)
-  python3 check.py --baseline # (re)write state file without alerting
-State: ~/workspace/stock-watch/state.json
+  python3 check.py                       # run daily check, print new signals (JSON)
+  python3 check.py --baseline            # (re)write state file without alerting
+  python3 check.py --bought TICKER PRICE [YYYY-MM-DD]
+                                         # record a buy (date defaults to today)
+  python3 check.py --sold TICKER [YYYY-MM-DD]
+                                         # close open position(s) in a ticker
+  python3 check.py --positions            # list tracked positions
+State: state.json and positions.json live beside this script.
 """
 import json, os, subprocess, sys, time, urllib.request
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(BASE, "state.json")
+POSITIONS_PATH = os.path.join(BASE, "positions.json")
+REVIEW_AFTER_SESSIONS = 63  # ~3 months of trading; backtest sweet spot is 2-6 months
 
 SECTORS = {
     "Financials": ["BRK.B", "JPM", "V", "MA", "BAC", "HSBC", "MS", "GS", "WFC", "AXP",
@@ -34,41 +44,49 @@ UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, 
 def yahoo_symbol(t):
     return t.replace(".", "-")
 
-def fetch_daily(ticker, rng="2y"):
-    """Adjusted daily closes, oldest -> newest, via Yahoo Finance chart API."""
+def _get_chart(ticker, rng="2y"):
+    """Raw Yahoo chart result dict, with urllib + curl fallback and retries."""
     sym = yahoo_symbol(ticker)
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range={rng}&interval=1d"
     last_err = None
-    for attempt in range(3):
-        # urllib attempt
+    for _ in range(3):
         try:
             req = urllib.request.Request(url, headers=UA)
             with urllib.request.urlopen(req, timeout=30) as r:
-                d = json.loads(r.read().decode())
-            closes = _parse_chart(d)
-            if len(closes) >= 30:
-                return closes
-            last_err = ValueError(f"only {len(closes)} bars")
+                return json.loads(r.read().decode())["chart"]["result"][0]
         except Exception as e:
             last_err = e
-        # curl fallback (handles Yahoo's flaky throttling of urllib)
         try:
             p = subprocess.run(
                 ["curl", "-s", "-m", "30", "-A", UA["User-Agent"], url],
                 capture_output=True, text=True, timeout=45)
-            closes = _parse_chart(json.loads(p.stdout))
-            if len(closes) >= 30:
-                return closes
-            last_err = ValueError(f"only {len(closes)} bars")
+            return json.loads(p.stdout)["chart"]["result"][0]
         except Exception as e:
             last_err = e
         time.sleep(2)
     raise RuntimeError(f"yahoo fetch failed for {ticker}: {last_err}")
 
-def _parse_chart(d):
-    res = d["chart"]["result"][0]
+def _closes_from(res):
     adj = res["indicators"]["adjclose"][0]["adjclose"]
     return [float(x) for x in adj if x is not None]
+
+def fetch_daily(ticker, rng="2y"):
+    """Adjusted daily closes, oldest -> newest, via Yahoo Finance chart API."""
+    closes = _closes_from(_get_chart(ticker, rng))
+    if len(closes) < 30:
+        raise RuntimeError(f"yahoo fetch failed for {ticker}: only {len(closes)} bars")
+    return closes
+
+def fetch_bars(ticker, rng="2y"):
+    """[(YYYY-MM-DD, adj_close)] oldest -> newest, via Yahoo Finance chart API."""
+    res = _get_chart(ticker, rng)
+    ts = res.get("timestamp") or []
+    adj = res["indicators"]["adjclose"][0]["adjclose"]
+    bars = [(time.strftime("%Y-%m-%d", time.gmtime(t)), float(x))
+            for t, x in zip(ts, adj) if x is not None]
+    if len(bars) < 30:
+        raise RuntimeError(f"yahoo fetch failed for {ticker}: only {len(bars)} bars")
+    return bars
 
 def sma(vals, n):
     return sum(vals[-n:]) / n if len(vals) >= n else None
@@ -106,7 +124,7 @@ def signals_for(ticker, closes):
     snap = {"price": round(c, 2), "sma50": round(s50, 2), "sma200": round(s200, 2),
             "rsi": round(r, 1), "vs_sma200_pct": round(100 * (c - s200) / s200, 1)}
     sig = []
-    # OVERSOLD_UPTREND removed 2026-09-29: 2y backtest showed no edge
+    # OVERSOLD_UPTREND removed 2026-09-29: 3y backtest showed no edge
     # (underperformed random entry on both 21d and 63d horizons).
     if p < s200_prev and c > s200:
         # First cross above: no signal yet — needs confirmation (see below).
@@ -132,18 +150,132 @@ SIGNAL_TEXT = {
     "BREAKDOWN": "slipped below its 200-day — backtest shows these often recover, so watch for a reclaim rather than avoid",
 }
 
+def load_positions():
+    if os.path.exists(POSITIONS_PATH):
+        try:
+            return json.load(open(POSITIONS_PATH))
+        except Exception:
+            return []
+    return []
+
+def save_positions(lots):
+    json.dump(lots, open(POSITIONS_PATH, "w"), indent=1)
+
+def cmd_bought(args):
+    """--bought TICKER PRICE [YYYY-MM-DD]: record a buy."""
+    if len(args) < 2:
+        print(json.dumps({"error": "usage: check.py --bought TICKER PRICE [YYYY-MM-DD]"}))
+        return
+    ticker = args[0].upper()
+    price = float(args[1])
+    date = args[2] if len(args) > 2 else time.strftime("%Y-%m-%d")
+    entry_signal = None
+    if os.path.exists(STATE_PATH):
+        try:
+            sigs = json.load(open(STATE_PATH)).get(ticker) or []
+            entry_signal = sigs[0] if sigs else None
+        except Exception:
+            pass
+    lots = load_positions()
+    lots.append({"ticker": ticker, "entry_date": date, "entry_price": price,
+                 "entry_signal": entry_signal, "status": "open",
+                 "breakdown_alerted": False, "review_alerted": False})
+    save_positions(lots)
+    print(json.dumps({"recorded": lots[-1],
+                      "open_positions": sum(1 for l in lots if l["status"] == "open")}))
+
+def cmd_sold(args):
+    """--sold TICKER [YYYY-MM-DD]: close open position(s) in a ticker."""
+    if not args:
+        print(json.dumps({"error": "usage: check.py --sold TICKER [YYYY-MM-DD]"}))
+        return
+    ticker = args[0].upper()
+    date = args[1] if len(args) > 1 else time.strftime("%Y-%m-%d")
+    lots = load_positions()
+    n = 0
+    for lot in lots:
+        if lot["ticker"] == ticker and lot["status"] == "open":
+            lot["status"] = "closed"
+            lot["exit_date"] = date
+            lot["exit_note"] = "manual"
+            n += 1
+    save_positions(lots)
+    print(json.dumps({"ticker": ticker, "closed": n,
+                      "open_positions": sum(1 for l in lots if l["status"] == "open")}))
+
+def cmd_positions():
+    print(json.dumps(load_positions(), indent=1))
+
+def evaluate_positions(bars_cache):
+    """SELL on fresh 200-day breakdown; REVIEW after 63 trading sessions."""
+    sell_alerts, reviews = [], []
+    lots = load_positions()
+    if not lots:
+        return sell_alerts, reviews
+    for lot in lots:
+        if lot.get("status") != "open":
+            continue
+        t = lot["ticker"]
+        bars = bars_cache.get(t)
+        if bars is None:
+            try:
+                bars = fetch_bars(t)
+                bars_cache[t] = bars
+            except Exception:
+                continue
+        if len(bars) < 210:
+            continue  # not enough history to judge the 200-day trend
+        dates = [d for d, _ in bars]
+        closes = [c for _, c in bars]
+        price = closes[-1]
+        pnl = 100 * (price - lot["entry_price"]) / lot["entry_price"]
+        base = {"ticker": t, "entry_date": lot["entry_date"],
+                "entry_price": lot["entry_price"],
+                "entry_signal": lot.get("entry_signal"),
+                "price": round(price, 2), "pnl_pct": round(pnl, 1)}
+        # 1) Trend-break exit: freshly closed below the 200-day
+        _, sig = signals_for(t, closes)
+        if ("BREAKDOWN" in sig and dates[-1] > lot["entry_date"]
+                and not lot.get("breakdown_alerted")):
+            sell_alerts.append({**base, "action": "SELL",
+                "reason": "closed below its 200-day — the uptrend thesis is broken"})
+            lot["breakdown_alerted"] = True
+        # 2) Time review: 63 trading sessions after entry (~3 months)
+        if not lot.get("review_alerted"):
+            sessions = sum(1 for d in dates if d >= lot["entry_date"])
+            if sessions >= REVIEW_AFTER_SESSIONS:
+                reviews.append({**base, "action": "REVIEW",
+                    "reason": (f"{sessions} trading sessions since entry — "
+                               "backtest sweet spot is 2-6 months; decide hold or exit"),
+                    "sessions_held": sessions})
+                lot["review_alerted"] = True
+    save_positions(lots)
+    return sell_alerts, reviews
+
 def main():
+    if "--bought" in sys.argv:
+        cmd_bought(sys.argv[sys.argv.index("--bought") + 1:])
+        return
+    if "--sold" in sys.argv:
+        cmd_sold(sys.argv[sys.argv.index("--sold") + 1:])
+        return
+    if "--positions" in sys.argv:
+        cmd_positions()
+        return
     baseline = "--baseline" in sys.argv
     state = {}
     if os.path.exists(STATE_PATH):
         state = json.load(open(STATE_PATH))
     new_state, events = {}, []
+    bars_cache = {}
     short = set(state.pop("_short_history", []))
     new_short = set()
     for sector, tickers in SECTORS.items():
         for t in tickers:
             try:
-                closes = fetch_daily(t)
+                bars = fetch_bars(t)
+                bars_cache[t] = bars
+                closes = [c for _, c in bars]
             except Exception as e:
                 events.append({"ticker": t, "sector": sector, "error": f"data fetch failed: {e}"})
                 continue
@@ -172,7 +304,11 @@ def main():
         warns = [e for e in events if e.get("signal") == "BREAKDOWN"]
         errs = [e for e in events if "error" in e]
         notes = [e for e in events if "note" in e]
+        sell_alerts, reviews = evaluate_positions(bars_cache)
         print(json.dumps({"new_buy_signals": buys, "new_breakdowns": warns,
+                          "sell_alerts": sell_alerts, "position_reviews": reviews,
+                          "open_positions": sum(1 for l in load_positions()
+                                                if l.get("status") == "open"),
                           "errors": errs, "notes": notes,
                           "tickers_checked": len(new_state) - 1}, indent=1))
 

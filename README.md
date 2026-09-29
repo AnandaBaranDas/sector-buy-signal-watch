@@ -132,6 +132,28 @@ Example output:
 }
 ```
 
+### Tracking your positions (sell alerts)
+
+When you act on a buy setup, record it and the checker will watch your exit:
+
+```bash
+python3 check.py --bought JPM 336.59        # record a buy (date defaults to today)
+python3 check.py --bought JPM 336.59 2026-09-29
+python3 check.py --positions                 # list tracked positions
+python3 check.py --sold JPM                  # close position(s) when you sell
+```
+
+Each daily run then evaluates your open positions and adds two fields to the JSON:
+
+- **`sell_alerts`** — the holding freshly closed below its 200-day, i.e. the
+  uptrend thesis is broken. Includes entry date/price, current price, and P&L %.
+- **`position_reviews`** — 63 trading sessions (~3 months) have passed since
+  entry. The backtest's sweet spot is a 2–6 month hold, so this is your prompt
+  to decide: hold or exit. Includes sessions held and P&L %.
+
+Your positions live in `positions.json` beside the script (git-ignored —
+never committed).
+
 ### Reproduce the research
 
 ```bash
