@@ -4,7 +4,8 @@ Daily sector watch: top-15 stocks x 6 sectors (90 tickers).
 Pulls daily bars from Yahoo Finance, computes SMA50 / SMA200 / RSI14 (Wilder),
 and emits BUY-signal / breakdown transitions vs yesterday's state.
 Also tracks your open positions and fires exit alerts:
-  - SELL when a holding freshly breaks below its 200-day (trend thesis broken)
+  - WATCH warning when a holding slips below its 200-day (backtest: these
+    usually recover — informational, not a sell signal)
   - REVIEW after 63 trading sessions (~3 months, the backtest sweet spot)
 
 Usage:
@@ -207,11 +208,13 @@ def cmd_positions():
     print(json.dumps(load_positions(), indent=1))
 
 def evaluate_positions(bars_cache):
-    """SELL on fresh 200-day breakdown; REVIEW after 63 trading sessions."""
-    sell_alerts, reviews = [], []
+    """Warn when a holding slips below its 200-day (informational — backtest
+    shows breakdowns usually recover, so this is not a sell signal);
+    REVIEW after 63 trading sessions (~3 months, the backtest sweet spot)."""
+    warnings, reviews = [], []
     lots = load_positions()
     if not lots:
-        return sell_alerts, reviews
+        return warnings, reviews
     for lot in lots:
         if lot.get("status") != "open":
             continue
@@ -233,13 +236,19 @@ def evaluate_positions(bars_cache):
                 "entry_price": lot["entry_price"],
                 "entry_signal": lot.get("entry_signal"),
                 "price": round(price, 2), "pnl_pct": round(pnl, 1)}
-        # 1) Trend-break exit: freshly closed below the 200-day
+        s200 = sma(closes, 200)
+        if price > s200:
+            lot["breakdown_warned"] = False  # re-arm after a reclaim
+        # 1) Trend warning: slipped below the 200-day. Backtest (89 stocks, 3y):
+        #    breakdowns averaged +7.9% over the next 63d (69% win), deeper ones
+        #    +11.6% — so this is "watch for a reclaim", never an auto-sell.
         _, sig = signals_for(t, closes)
         if ("BREAKDOWN" in sig and dates[-1] > lot["entry_date"]
-                and not lot.get("breakdown_alerted")):
-            sell_alerts.append({**base, "action": "SELL",
-                "reason": "closed below its 200-day — the uptrend thesis is broken"})
-            lot["breakdown_alerted"] = True
+                and not lot.get("breakdown_warned")):
+            warnings.append({**base, "action": "WATCH",
+                "reason": ("slipped below its 200-day — breakdowns in this universe "
+                           "have usually recovered; watching for a reclaim, not a sell signal")})
+            lot["breakdown_warned"] = True
         # 2) Time review: 63 trading sessions after entry (~3 months)
         if not lot.get("review_alerted"):
             sessions = sum(1 for d in dates if d >= lot["entry_date"])
@@ -250,7 +259,7 @@ def evaluate_positions(bars_cache):
                     "sessions_held": sessions})
                 lot["review_alerted"] = True
     save_positions(lots)
-    return sell_alerts, reviews
+    return warnings, reviews
 
 def main():
     if "--bought" in sys.argv:
@@ -304,9 +313,9 @@ def main():
         warns = [e for e in events if e.get("signal") == "BREAKDOWN"]
         errs = [e for e in events if "error" in e]
         notes = [e for e in events if "note" in e]
-        sell_alerts, reviews = evaluate_positions(bars_cache)
+        thesis_warnings, reviews = evaluate_positions(bars_cache)
         print(json.dumps({"new_buy_signals": buys, "new_breakdowns": warns,
-                          "sell_alerts": sell_alerts, "position_reviews": reviews,
+                          "thesis_warnings": thesis_warnings, "position_reviews": reviews,
                           "open_positions": sum(1 for l in load_positions()
                                                 if l.get("status") == "open"),
                           "errors": errs, "notes": notes,

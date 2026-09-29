@@ -145,8 +145,10 @@ python3 check.py --sold JPM                  # close position(s) when you sell
 
 Each daily run then evaluates your open positions and adds two fields to the JSON:
 
-- **`sell_alerts`** — the holding freshly closed below its 200-day, i.e. the
-  uptrend thesis is broken. Includes entry date/price, current price, and P&L %.
+- **`thesis_warnings`** — the holding slipped below its 200-day. This is
+  informational, **not** a sell signal: a 3-year backtest showed breakdowns in
+  this universe usually recover (marginal ones +7.0%, deep ones +11.6% on
+  average over 63 days). Includes entry date/price, current price, and P&L %.
 - **`position_reviews`** — 63 trading sessions (~3 months) have passed since
   entry. The backtest's sweet spot is a 2–6 month hold, so this is your prompt
   to decide: hold or exit. Includes sessions held and P&L %.
