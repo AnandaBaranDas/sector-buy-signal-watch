@@ -12,6 +12,20 @@ holdings across 6 sectors. It pulls daily bars from Yahoo Finance, computes
 Pure Python standard library. **Zero dependencies** — if you have Python 3,
 you can run it.
 
+## Authorship & credit
+
+This signal framework — the confirmed 2-close 200-day reclaim rule, the
+quality-dip entry criteria, and the 3-year backtest methodology — was
+developed by **Ananda Baran Das** (September 2026).
+
+If you use, fork, or build on this project, **please credit the author**:
+
+> Signal framework by Ananda Baran Das —
+> https://github.com/AnandaBaranDas/sector-buy-signal-watch
+
+For academic or written references, use the citation file
+[`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository" button).
+
 ## How it works
 
 ```
@@ -132,6 +146,8 @@ python3 hold_analysis.py    # forward returns by holding period (5d … 252d)
 | `check.py` | Daily signal checker — the main script |
 | `backtest.py` | 3-year backtest of every signal vs random entry |
 | `hold_analysis.py` | Forward returns per holding period |
+| `CITATION.cff` | Author citation file (GitHub "Cite this repository") |
+| `LICENSE` | MIT license — copyright Ananda Baran Das |
 | `state.json` | Created on first run — previous day's signals (git-ignored) |
 
 ## Automation

@@ -1,0 +1,24 @@
+# This CITATION.cff file makes GitHub show a "Cite this repository" button,
+# so anyone referencing this work can credit the author properly.
+cff-version: 1.2.0
+message: "If you use this software or signal framework, please cite it as below."
+authors:
+  - family-names: "Das"
+    given-names: "Ananda Baran"
+title: "sector-buy-signal-watch"
+version: 1.0.0
+date-released: 2026-09-29
+url: "https://github.com/AnandaBaranDas/sector-buy-signal-watch"
+repository-code: "https://github.com/AnandaBaranDas/sector-buy-signal-watch"
+license: MIT
+keywords:
+  - stock-screener
+  - technical-analysis
+  - buy-signals
+  - moving-averages
+  - RSI
+  - backtest
+abstract: "Daily technical buy-signal screener for 60 large-cap stocks across
+  6 sectors (SMA-50/200 + RSI-14), including a confirmed 2-close 200-day
+  reclaim rule, quality-dip entry criteria, and a 3-year backtest methodology.
+  Pure Python, zero dependencies."
